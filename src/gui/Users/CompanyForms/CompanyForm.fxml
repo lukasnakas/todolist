@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import javafx.geometry.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<GridPane fx:id="addCompanyForm" vgap="8.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1" fx:controller="gui.Users.CompanyForms.CompanyFormController">
+    <children>
+        <TextField fx:id="newLogin" prefHeight="31.0" prefWidth="85.0" GridPane.columnIndex="2" />
+        <TextField fx:id="newTitle" GridPane.columnIndex="2" GridPane.rowIndex="2" />
+        <TextField fx:id="newEmail" GridPane.columnIndex="2" GridPane.rowIndex="3" />
+        <Button alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" onAction="#newCompanyConfirm" prefHeight="31.0" prefWidth="174.0" text="Confirm" textAlignment="CENTER" GridPane.columnIndex="2" GridPane.rowIndex="5" />
+        <Label text="Login" />
+        <Label text="Password" GridPane.rowIndex="1" />
+        <Label text="Title" GridPane.rowIndex="2" />
+        <Label text="E-Mail (optional)" GridPane.rowIndex="3" />
+      <Button alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" onAction="#cancelForm" prefHeight="31.0" prefWidth="130.0" text="Cancel" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.rowIndex="5" GridPane.valignment="CENTER" />
+      <PasswordField fx:id="newPass" GridPane.columnIndex="2" GridPane.rowIndex="1" />
+    </children>
+    <columnConstraints>
+        <ColumnConstraints hgrow="SOMETIMES" maxWidth="180.0" minWidth="10.0" prefWidth="129.0" />
+        <ColumnConstraints hgrow="SOMETIMES" maxWidth="88.0" minWidth="10.0" prefWidth="16.0" />
+        <ColumnConstraints hgrow="SOMETIMES" maxWidth="167.0" minWidth="10.0" prefWidth="167.0" />
+    </columnConstraints>
+    <padding>
+        <Insets left="10.0" right="10.0" top="42.0" />
+    </padding>
+    <rowConstraints>
+        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+        <RowConstraints minHeight="10.0" prefHeight="30.0" vgrow="SOMETIMES" />
+    </rowConstraints>
+</GridPane>
