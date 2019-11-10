@@ -13,19 +13,20 @@ public class Task implements Serializable {
 		private Date createdOn, completedOn, editedOn;
 		private User createdBy, completedBy, editedBy;
 		private boolean done = false;
-		private ArrayList<Task> subTasks = new ArrayList<Task>();
+		private ArrayList<Task> subTasks = new ArrayList<>();
 		private Project project;
+		boolean isSubtask = true;
 		
-		public Task(String title, Project project, User createdBy) {
+		public Task(int id, String title, Project project, User createdBy) {
 			this.title = title;
 			this.createdBy = createdBy;
 			this.createdOn = new Date();
 			this.project = project;
-			this.id = idCounter++;
+			this.id = id;
 		}
 
 		public ArrayList<Task> getAllSubTasks(){
-			ArrayList<Task> allSubTasks = new ArrayList<Task>();
+			ArrayList<Task> allSubTasks = new ArrayList<>();
 			for(Task subTask : this.subTasks) {
 				allSubTasks.add(subTask);
 				allSubTasks.addAll(subTask.getAllSubTasks());
@@ -42,7 +43,7 @@ public class Task implements Serializable {
 			return title;
 		}
 
-		public String getTitle() {
+	public String getTitle() {
 			return title;
 		}
 
@@ -102,6 +103,10 @@ public class Task implements Serializable {
 			return id;
 		}
 
+		public void setId(int id){
+			this.id = id;
+		}
+
 		public Date getCreatedOn() {
 			return createdOn;
 		}
@@ -125,5 +130,20 @@ public class Task implements Serializable {
 		public static void setIdCounter(int idCounter) {
 			Task.idCounter = idCounter;
 		}
-		
+
+		public void setCreatedOn(Date createdOn) {
+			this.createdOn = createdOn;
+		}
+
+	public static int getIdCounter() {
+		return idCounter;
+	}
+
+	public void setSubtask(boolean subtask) {
+		isSubtask = subtask;
+	}
+
+	public boolean isSubtask() {
+		return isSubtask;
+	}
 }

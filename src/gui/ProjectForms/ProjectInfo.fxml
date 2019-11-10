@@ -43,7 +43,7 @@
                <children>
                   <Button alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" onAction="#loadNewTaskForm" prefHeight="31.0" prefWidth="107.0" text="Add task" textAlignment="CENTER" GridPane.halignment="CENTER" GridPane.valignment="CENTER" />
                   <Button alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" onAction="#completeTask" prefHeight="31.0" prefWidth="133.0" text="Complete task" textAlignment="CENTER" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.valignment="CENTER" />
-                  <Button alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" onAction="#loadNewTaskForm" prefHeight="31.0" prefWidth="103.0" text="Edit task" textAlignment="CENTER" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.valignment="CENTER" />
+                  <Button alignment="CENTER" contentDisplay="CENTER" mnemonicParsing="false" onAction="#loadNewTaskFormToEdit" prefHeight="31.0" prefWidth="103.0" text="Edit task" textAlignment="CENTER" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.valignment="CENTER" />
                </children>
             </GridPane>
          </children>

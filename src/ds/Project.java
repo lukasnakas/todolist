@@ -34,7 +34,7 @@ public class Project extends TreeItem<Project> implements Serializable
 	}
 	
 	public ArrayList<Task> getAllTasks(){
-		ArrayList<Task> allTasks = new ArrayList<Task>();
+		ArrayList<Task> allTasks = new ArrayList<>();
 		allTasks.addAll(this.tasks);
 		for(Task task : this.tasks)
 			allTasks.addAll(task.getAllSubTasks());

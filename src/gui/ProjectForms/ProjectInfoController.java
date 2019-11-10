@@ -73,6 +73,26 @@ public class ProjectInfoController implements Initializable {
         tfControl.setProjectInfoController(this);
         tfControl.setSelectedProject(projectID);
 
+        Scene scene = new Scene(root);
+        Stage manageTasks = new Stage();
+        manageTasks.setTitle("Add task");
+        manageTasks.setScene(scene);
+        manageTasks.initOwner(projectTitle.getScene().getWindow());
+        manageTasks.initModality(Modality.APPLICATION_MODAL);
+        manageTasks.showAndWait();
+        projectsController.refillTable();
+        centerWindowOnScreen(manageTasks);
+    }
+
+    public void loadNewTaskFormToEdit() throws IOException {
+        FXMLLoader loader = new FXMLLoader(getClass().getResource("../ProjectForms/TaskForms/TaskForm.fxml"));
+        Parent root = loader.load();
+
+        TaskFormController tfControl = loader.getController();
+        tfControl.setManager(manager);
+        tfControl.setProjectInfoController(this);
+        tfControl.setSelectedProject(projectID);
+
         if(selectedTask != null) {
             if(!selectedTask.isDone())
                 tfControl.setSelectedTask(this.selectedTask);
@@ -102,8 +122,9 @@ public class ProjectInfoController implements Initializable {
             String completedTitle = selectedTask.getTitle() + " - COMPLETED";
             manager.editTaskInfo(selectedTask.getId(), completedTitle);
             manager.completeTask(selectedTask.getId());
-            showProjectTasks(manager.getProjectById(projectID));
+            showProjectTasks(manager.getProjectById(projectID, true));
         } catch (Exception e) {
+            e.printStackTrace();
             System.out.println("Tokio tasko nera");;
         }
     }
@@ -122,11 +143,14 @@ public class ProjectInfoController implements Initializable {
     }
 
     public void showProjectTasks(Project project) throws Exception {
-        TreeItem<Task> root = new TreeItem<>(new Task("Tasks", null, null));
+        TreeItem<Task> root = new TreeItem<>(new Task(0, "Tasks", null, null));
         projectTasks.setShowRoot(false);
 
-        for(Task task : manager.getProjectTasks(project.getId()))
-            createProjectTasksTree(root, task);
+        for(Task task : manager.getProjectTasks(project.getId())) {
+            System.out.println(task.getSubTasks().size());
+            if(task.isSubtask())
+                createProjectTasksTree(root, task);
+        }
 
         projectTasks.setRoot(root);
     }

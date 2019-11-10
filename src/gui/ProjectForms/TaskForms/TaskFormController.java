@@ -45,7 +45,7 @@ public class TaskFormController implements Initializable {
 
     public void setSelectedProject(int projectID) {
         try {
-            selectedProject = manager.getProjectById(projectID);
+            selectedProject = manager.getProjectById(projectID, true);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -53,7 +53,13 @@ public class TaskFormController implements Initializable {
     }
 
     public void generateTaskList(){
-        ObservableList<Task> tasks = FXCollections.observableArrayList(selectedProject.getAllTasks());
+        //ObservableList<Task> tasks = FXCollections.observableArrayList(selectedProject.getAllTasks());
+        ObservableList<Task> tasks = null;
+        try {
+            tasks = FXCollections.observableArrayList(manager.getProjectTasks(selectedProject.getId()));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         taskList.setItems(tasks);
     }
 
@@ -72,6 +78,8 @@ public class TaskFormController implements Initializable {
         Project taskProject = selectedProject;
 
         Task addToTask = taskList.getSelectionModel().getSelectedItem();
+
+        System.out.println(formAction);
 
         if(formAction.equals("ADD")) {
             if(addToTask == null)

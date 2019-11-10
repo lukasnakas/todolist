@@ -114,7 +114,7 @@ public class ProjectsController implements Initializable {
         if (manager != null) {
             newProjectTable.getItems().clear();
             try {
-                newProjectTable.getItems().addAll(manager.getP());
+                newProjectTable.getItems().addAll(manager.getProjectsWithData());
             } catch (Exception e) {
                 e.printStackTrace();
             }

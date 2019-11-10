@@ -38,7 +38,7 @@ public class ProjectFormController implements Initializable {
 
     private Manager manager = null;
     private ProjectsController projectsController = null;
-    private ObservableList<User> selectedMembers = null;
+    private ObservableList<User> selectedMembers = FXCollections.observableArrayList();
 
     private int projectID = 0;
     private String formAction = "ADD";
@@ -66,20 +66,19 @@ public class ProjectFormController implements Initializable {
 
         User creator = (User) newCreator.getSelectionModel().getSelectedItem();
 
-        if(selectedMembers == null)
-            selectedMembers = FXCollections.observableArrayList(creator);
-
         if(formAction.equals("ADD")) {
             Project newProject = manager.addProject(title, creator.getId());
 
-            for(User member : selectedMembers)
-                manager.addProjectMember(newProject.getId(), member.getId());
+            if(selectedMembers != null )
+                for(User member : selectedMembers)
+                    manager.addProjectMember(newProject.getId(), member.getId());
         }
         if(formAction.equals("EDIT")) {
             Project editedProject = manager.editProjectInfo(projectID, title);
 
-            for(User member : selectedMembers)
-                manager.addProjectMember(editedProject.getId(), member.getId());
+            if(selectedMembers != null && !(selectedMembers.get(0) == null))
+                for(User member : selectedMembers)
+                    manager.addProjectMember(editedProject.getId(), member.getId());
 
             projectsController.getFormVBox().getChildren().clear();
         }

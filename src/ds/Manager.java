@@ -1,6 +1,9 @@
 package ds;
 
+import com.sun.glass.ui.EventLoop;
+
 import java.sql.*;
+import java.util.Calendar;
 import java.util.Date;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -22,7 +25,8 @@ public class Manager implements Serializable {
     }
 
     public void disconnectDB() throws Exception{
-        connDB.close();
+        if(!connDB.isClosed())
+            connDB.close();
     }
 
     public Person registerPerson(String login, String pass, String firstName, String lastName, String email) throws Exception {
@@ -175,9 +179,10 @@ public class Manager implements Serializable {
         return activeUsers;
     }
 
-    public User getUserById(int userId) throws Exception {
+    public User getUserById(int userId, boolean handleDBConnection) throws Exception {
         if(online != null){
-            connectDB();
+            if(handleDBConnection)
+                connectDB();
             PreparedStatement ps = connDB.prepareStatement("SELECT * FROM users u LEFT JOIN persons p ON u.user_id=p.user_id LEFT JOIN companies c ON u.user_id=c.user_id WHERE u.user_id = ?");
             ps.setInt(1, userId);
             ResultSet rs = ps.executeQuery();
@@ -210,7 +215,8 @@ public class Manager implements Serializable {
 
             rs.close();
             ps.close();
-            disconnectDB();
+            if(handleDBConnection)
+                disconnectDB();
             return user;
         }
 //        if (online != null)
@@ -264,23 +270,25 @@ public class Manager implements Serializable {
         return null;
     }
 
-    public Project getProjectById(int projectId) throws Exception {
+    public Project getProjectById(int projectId, boolean handleDBConnection) throws Exception {
         if(online != null){
-            connectDB();
+            if(handleDBConnection)
+                connectDB();
             PreparedStatement ps = connDB.prepareStatement("SELECT * FROM projects WHERE project_id = ?");
             ps.setInt(1, projectId);
             ResultSet rs = ps.executeQuery();
             Project project = null;
-            int id = 0;
+
             while(rs.next()){
-                id = rs.getInt("project_id");
+                int id = rs.getInt("project_id");
                 String title = rs.getString("project_title");
                 project = new Project(id, title);
             }
 
             rs.close();
             ps.close();
-            disconnectDB();
+            if(handleDBConnection)
+                disconnectDB();
 
             return project;
         }
@@ -306,7 +314,7 @@ public class Manager implements Serializable {
     }
 
     public void toggleUserActive(int userId, boolean isActive) throws Exception {
-        User currentUser = getUserById(userId);
+        User currentUser = getUserById(userId, true);
         if (currentUser == null) throw new ObjectDoesNotExist("User with ID: [" + userId + "] does not exist.");
         currentUser.setActive(isActive);
 
@@ -320,7 +328,7 @@ public class Manager implements Serializable {
     }
 
     public boolean editPersonInfo(int userId, String firstName, String lastName, String email) throws Exception {
-        User currentUser = getUserById(userId);
+        User currentUser = getUserById(userId, true);
         if (currentUser == null) throw new ObjectDoesNotExist("User with ID: [" + userId + "] does not exist.");
         if (currentUser.getClass().equals(Person.class)) {
             Person person = (Person) currentUser;
@@ -346,7 +354,7 @@ public class Manager implements Serializable {
     }
 
     public boolean editCompanyInfo(int userId, String title, String email) throws Exception {
-        User currentUser = getUserById(userId);
+        User currentUser = getUserById(userId, true);
         if (currentUser == null) throw new ObjectDoesNotExist("User with ID: [" + userId + "] does not exist.");
         if (currentUser.getClass().equals(Company.class)) {
             Company company = (Company) currentUser;
@@ -371,7 +379,7 @@ public class Manager implements Serializable {
     }
 
     public Project editProjectInfo(int projectId, String projectTitle) throws Exception {
-        Project project = getProjectById(projectId);
+        Project project = getProjectById(projectId, true);
         if (project != null && projectTitle.length() > 5) {
             connectDB();
             PreparedStatement ps = connDB.prepareStatement("UPDATE projects SET project_title = ? WHERE project_id = ?");
@@ -396,8 +404,8 @@ public class Manager implements Serializable {
             connectDB();
             PreparedStatement ps = connDB.prepareStatement("UPDATE tasks SET task_title = ?, task_edited_on = ?, task_edited_by = ? WHERE task_id = ?");
             ps.setString(1, taskTitle);
-            ps.setDate(2, (java.sql.Date) new Date());
-            ps.setString(3, online.toString());
+            ps.setDate(2, new java.sql.Date(Calendar.getInstance().getTime().getTime()));
+            ps.setInt(3, online.getId());
             ps.setInt(4, task.getId());
             ps.executeUpdate();
 
@@ -436,20 +444,24 @@ public class Manager implements Serializable {
     }
 
     public Project addProject(String title, int creatorId) throws Exception {
-        User creator = getUserById(creatorId);
+        User creator = getUserById(creatorId, true);
         if (creator != null && creator.isActive() && title.length() > 4) {
             Project newProject = new Project(0, title, creator);
             int projectID = 0;
 
             connectDB();
-            PreparedStatement ps = connDB.prepareStatement("INSERT INTO projects (project_title)"
-                                                                + "VALUES (?)", Statement.RETURN_GENERATED_KEYS);
+            PreparedStatement ps = connDB.prepareStatement("INSERT INTO projects (project_title)" + "VALUES (?)", Statement.RETURN_GENERATED_KEYS);
             ps.setString(1, newProject.getTitle());
             ps.executeUpdate();
 
             ResultSet rs = ps.getGeneratedKeys();
             if(rs.next())
                 projectID = rs.getInt(1);
+
+            ps = connDB.prepareStatement("INSERT INTO user_projects (user_id, project_id)" + "VALUES (?, ?)");
+            ps.setInt(1, creator.getId());
+            ps.setInt(2, projectID);
+            ps.executeUpdate();
 
             rs.close();
             ps.close();
@@ -463,11 +475,23 @@ public class Manager implements Serializable {
     }
 
     public boolean deleteProject(int projectId) throws Exception {
-        Project projectToDelete = getProjectById(projectId);
+        Project projectToDelete = getProjectById(projectId, true);
         if (projectToDelete != null) {
-            for (User member : projectToDelete.getMembers())
-                member.removeProject(projectToDelete);
-            projects.remove(projectToDelete);
+            connectDB();
+            PreparedStatement ps = connDB.prepareStatement("DELETE FROM user_projects WHERE project_id = ?");
+            ps.setInt(1, projectToDelete.getId());
+            ps.executeUpdate();
+
+            ps = connDB.prepareStatement("DELETE FROM projects WHERE project_id = ?");
+            ps.setInt(1, projectToDelete.getId());
+            ps.executeUpdate();
+
+            ps.close();
+            disconnectDB();
+
+//            for (User member : projectToDelete.getMembers())
+//                member.removeProject(projectToDelete);
+//            projects.remove(projectToDelete);
             return true;
         }
         throw new ObjectDoesNotExist("Project with ID: [" + projectId + "] does not exist.");
@@ -526,32 +550,107 @@ public class Manager implements Serializable {
         return null;
     }
 
-    public Task getUserTaskById(int taskId) {
-        if (online != null)
-            for (Project project : online.getProjects()) {
-                ArrayList<Task> allTasks = project.getAllTasks();
-                for (Task task : allTasks)
-                    if (task.getId() == taskId)
-                        return task;
+    public Task getUserTaskById(int taskId) throws Exception {
+        if(online != null){
+            connectDB();
+            PreparedStatement ps = connDB.prepareStatement("SELECT * FROM tasks WHERE task_id = ? AND task_created_by = ?");
+            ps.setInt(1, taskId);
+            ps.setInt(2, online.getId());
+            ResultSet rs = ps.executeQuery();
+            Task task = null;
+
+            while(rs.next()){
+                int id = rs.getInt("task_id");
+                String title = rs.getString("task_title");
+                Date createdOn = rs.getDate("task_created_on");
+                int createdBy = rs.getInt("task_created_by");
+                Date editedOn = rs.getDate("task_edited_on");
+                int editedBy = rs.getInt("task_edited_by");
+                Date completedOn = rs.getDate("task_completed_on");
+                int completedBy = rs.getInt("task_completed_by");
+                int parentTaskID = rs.getInt("task_parent_task");
+                int taskProject = rs.getInt("task_project");
+
+                Project project = getProjectById(taskProject, false);
+
+                User creator = getUserById(createdBy, false);
+                task = new Task(id, title, project, creator);
+                task.setCompletedBy(getUserById(completedBy, false));
+                task.setEditedBy(getUserById(editedBy, false));
+                task.setCompletedOn(completedOn);
+                task.setEditedOn(editedOn);
+                task.setProject(project);
             }
+
+            rs.close();
+            ps.close();
+            disconnectDB();
+
+            return task;
+        }
+//        if (online != null)
+//            for (Project project : online.getProjects()) {
+//                ArrayList<Task> allTasks = project.getAllTasks();
+//                for (Task task : allTasks)
+//                    if (task.getId() == taskId)
+//                        return task;
+//            }
         return null;
     }
 
-    public Task getTaskById(int taskId) {
-        if (online != null)
-            for (User user : this.users)
-                for (Project project : user.getProjects()) {
-                    ArrayList<Task> allTasks = project.getAllTasks();
-                    for (Task task : allTasks)
-                        if (task.getId() == taskId)
-                            return task;
-                }
+    public Task getTaskById(int taskId, boolean handleDBConnection) throws Exception {
+        if(online != null){
+            if(handleDBConnection)
+                connectDB();
+            PreparedStatement ps = connDB.prepareStatement("SELECT * FROM tasks WHERE task_id = ?");
+            ps.setInt(1, taskId);
+            ResultSet rs = ps.executeQuery();
+            Task task = null;
+
+            while(rs.next()){
+                int id = rs.getInt("task_id");
+                String title = rs.getString("task_title");
+                Date createdOn = rs.getDate("task_created_on");
+                int createdBy = rs.getInt("task_created_by");
+                Date editedOn = rs.getDate("task_edited_on");
+                int editedBy = rs.getInt("task_edited_by");
+                Date completedOn = rs.getDate("task_completed_on");
+                int completedBy = rs.getInt("task_completed_by");
+                int parentTaskID = rs.getInt("task_parent_task");
+                int taskProject = rs.getInt("task_project");
+
+                Project project = getProjectById(taskProject, false);
+
+                User creator = getUserById(createdBy, false);
+                task = new Task(id, title, project, creator);
+                task.setCompletedBy(getUserById(completedBy, false));
+                task.setEditedBy(getUserById(editedBy, false));
+                task.setCompletedOn(completedOn);
+                task.setEditedOn(editedOn);
+                task.setProject(project);
+            }
+
+            rs.close();
+            ps.close();
+            if(handleDBConnection)
+                disconnectDB();
+
+            return task;
+        }
+//        if (online != null)
+//            for (User user : this.users)
+//                for (Project project : user.getProjects()) {
+//                    ArrayList<Task> allTasks = project.getAllTasks();
+//                    for (Task task : allTasks)
+//                        if (task.getId() == taskId)
+//                            return task;
+//                }
         return null;
     }
 
     public boolean addProjectMember(int projectId, int userId) throws Exception {
-        User newMember = getUserById(userId);
-        Project project = getProjectById(projectId);
+        User newMember = getUserById(userId, true);
+        Project project = getProjectById(projectId, true);
         if (newMember == null) throw new ObjectDoesNotExist("User with ID: [" + userId + "] does not exist.");
         if (project == null) throw new ObjectDoesNotExist("Project with ID: [" + projectId + "] does not exist.");
         if (newMember.isActive()) {
@@ -572,7 +671,7 @@ public class Manager implements Serializable {
     }
 
     public ArrayList<User> getProjectMembers(int projectId) throws Exception {
-        Project project = getProjectById(projectId);
+        Project project = getProjectById(projectId, true);
         if(project != null){
             ArrayList<User> members = new ArrayList<>();
             connectDB();
@@ -647,7 +746,7 @@ public class Manager implements Serializable {
         return new ArrayList<>();
     }
 
-    public ArrayList<Project> getP() throws Exception {
+    public ArrayList<Project> getProjectsWithData() throws Exception {
         if(online != null){
             ArrayList<Project> projects = getAllProjects();
             for(Project project : projects){
@@ -662,21 +761,63 @@ public class Manager implements Serializable {
     public Task addTaskToProject(int projectId, String taskTitle) throws Exception {
         Project project = getUserProjectById(projectId);
         if (project != null) {
-            Task newTask = new Task(taskTitle, project, online);
-            project.addTask(newTask);
-            numberOfTasks++;
+            Task newTask = new Task(0, taskTitle, project, online);
+            int taskID = 0;
+
+            connectDB();
+            PreparedStatement ps = connDB.prepareStatement("INSERT INTO tasks (task_title, task_created_on, task_created_by, task_parent_task, task_project)"
+                    + "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, newTask.getTitle());
+            ps.setDate(2, new java.sql.Date(Calendar.getInstance().getTime().getTime()));
+            ps.setInt(3, online.getId());
+            ps.setString(4, null);
+            ps.setInt(5, project.getId());
+            ps.executeUpdate();
+
+            ResultSet rs = ps.getGeneratedKeys();
+            if(rs.next())
+                taskID = rs.getInt(1);
+
+            rs.close();
+
+            ps.close();
+            disconnectDB();
+
+//            project.addTask(newTask);
+//            numberOfTasks++;
+            newTask.setId(taskID);
             return newTask;
         }
         throw new ObjectDoesNotExist("Project with ID: [" + projectId + "] does not exist in current user's projects list.");
     }
 
     public Task addTaskToProject(int projectId, String taskTitle, int creatorId) throws Exception {
-        Project project = getProjectById(projectId);
-        User creator = getUserById(creatorId);
+        Project project = getProjectById(projectId, true);
+        User creator = getUserById(creatorId, true);
         if (project != null && creator != null) {
-            Task newTask = new Task(taskTitle, project, creator);
-            project.addTask(newTask);
-            numberOfTasks++;
+            Task newTask = new Task(0, taskTitle, project, creator);
+            int taskID = 0;
+
+            connectDB();
+            PreparedStatement ps = connDB.prepareStatement("INSERT INTO tasks (task_title, task_created_on, task_created_by, task_parent_task, task_project)"
+                    + "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, newTask.getTitle());
+            ps.setDate(2, new java.sql.Date(Calendar.getInstance().getTime().getTime()));
+            ps.setInt(3, creator.getId());
+            ps.setInt(4, 0);
+            ps.setInt(5, project.getId());
+            ps.executeUpdate();
+
+            ResultSet rs = ps.getGeneratedKeys();
+            if(rs.next())
+                taskID = rs.getInt(1);
+
+            ps.close();
+            disconnectDB();
+
+//            project.addTask(newTask);
+//            numberOfTasks++;
+            newTask.setId(taskID);
             return newTask;
         }
         throw new ObjectDoesNotExist("Project with ID: [" + projectId + "] does not exist in current user's projects list.");
@@ -685,21 +826,61 @@ public class Manager implements Serializable {
     public Task addTaskToTask(int taskId, String taskTitle) throws Exception {
         Task parentTask = getUserTaskById(taskId);
         if (parentTask != null) {
-            Task newTask = new Task(taskTitle, parentTask.getProject(), online);
-            parentTask.addTask(newTask);
-            numberOfTasks++;
+            Task newTask = new Task(0, taskTitle, parentTask.getProject(), online);
+            int taskID = 0;
+
+            connectDB();
+            PreparedStatement ps = connDB.prepareStatement("INSERT INTO tasks (task_title, task_created_on, task_created_by, task_parent_task, task_project)"
+                    + "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, newTask.getTitle());
+            ps.setDate(2, new java.sql.Date(Calendar.getInstance().getTime().getTime()));
+            ps.setInt(3, online.getId());
+            ps.setInt(4, parentTask.getId());
+            ps.setInt(5, parentTask.getProject().getId());
+            ps.executeUpdate();
+
+            ResultSet rs = ps.getGeneratedKeys();
+            if(rs.next())
+                taskID = rs.getInt(1);
+
+            ps.close();
+            disconnectDB();
+
+//            parentTask.addTask(newTask);
+//            numberOfTasks++;
+            newTask.setId(taskID);
             return newTask;
         }
         throw new ObjectDoesNotExist("Task with ID: " + taskId + " does not exist in current user's tasks list.");
     }
 
     public Task addTaskToTask(int taskId, String taskTitle, int creatorId) throws Exception {
-        Task parentTask = getTaskById(taskId);
-        User creator = getUserById(creatorId);
+        Task parentTask = getTaskById(taskId, true);
+        User creator = getUserById(creatorId, true);
         if (parentTask != null && creator != null) {
-            Task newTask = new Task(taskTitle, parentTask.getProject(), creator);
-            parentTask.addTask(newTask);
-            numberOfTasks++;
+            Task newTask = new Task(0, taskTitle, parentTask.getProject(), creator);
+            int taskID = 0;
+
+            connectDB();
+            PreparedStatement ps = connDB.prepareStatement("INSERT INTO tasks (task_title, task_created_on, task_created_by, task_parent_task, task_project)"
+                    + "VALUES (?, ?, ?, ?, ?)", Statement.RETURN_GENERATED_KEYS);
+            ps.setString(1, newTask.getTitle());
+            ps.setDate(2, new java.sql.Date(Calendar.getInstance().getTime().getTime()));
+            ps.setInt(3, creator.getId());
+            ps.setInt(4, parentTask.getId());
+            ps.setInt(5, parentTask.getProject().getId());
+            ps.executeUpdate();
+
+            ResultSet rs = ps.getGeneratedKeys();
+            if(rs.next())
+                taskID = rs.getInt(1);
+
+            ps.close();
+            disconnectDB();
+
+//            parentTask.addTask(newTask);
+//            numberOfTasks++;
+            newTask.setId(taskID);
             return newTask;
         }
         throw new ObjectDoesNotExist("Task with ID: " + taskId + " does not exist in current user's tasks list.");
@@ -707,20 +888,78 @@ public class Manager implements Serializable {
 
     public Task completeTask(int taskId) throws Exception {
         Task taskToComplete = getUserTaskById(taskId);
+
         if (taskToComplete == null) throw new ObjectDoesNotExist("Task with ID: [" + taskId + "] does not exist.");
         if (taskToComplete.isDone())
             throw new ObjectDoesNotExist("Task with ID: [" + taskId + "] is already completed.");
 
-        taskToComplete.setCompletedOn(new Date());
-        taskToComplete.setCompletedBy(online);
-        taskToComplete.setDone(true);
+        connectDB();
+        PreparedStatement ps = connDB.prepareStatement("UPDATE tasks SET task_completed_on = ?, task_completed_by = ? WHERE task_id = ?");
+        ps.setDate(1, new java.sql.Date(Calendar.getInstance().getTime().getTime()));
+        ps.setInt(2, online.getId());
+        ps.setInt(3, taskToComplete.getId());
+        ps.executeUpdate();
+        ps.close();
+        disconnectDB();
+
+//        taskToComplete.setCompletedOn(new Date());
+//        taskToComplete.setCompletedBy(online);
+//        taskToComplete.setDone(true);
         return taskToComplete;
     }
 
     public ArrayList<Task> getProjectTasks(int projectId) throws Exception {
-        Project project = getProjectById(projectId);
-        if (project != null)
-            return project.getTasks();
+        Project project = getProjectById(projectId, true);
+        if (project != null){
+            ArrayList<Task> tasks = new ArrayList<>();
+            connectDB();
+            PreparedStatement ps = connDB.prepareStatement("SELECT * FROM tasks t, projects p WHERE p.project_id = t.task_project AND p.project_id = ?");
+            ps.setInt(1, projectId);
+
+            ResultSet rs = ps.executeQuery();
+
+            Task task = null;
+            while(rs.next()){
+                int id = rs.getInt("task_id");
+                String title = rs.getString("task_title");
+                Date createdOn = rs.getDate("task_created_on");
+                int createdBy = rs.getInt("task_created_by");
+                Date editedOn = rs.getDate("task_edited_on");
+                int editedBy = rs.getInt("task_edited_by");
+                Date completedOn = rs.getDate("task_completed_on");
+                int completedBy = rs.getInt("task_completed_by");
+                int parentTaskID = rs.getInt("task_parent_task");
+                int taskProject = rs.getInt("task_project");
+
+                User creator = getUserById(createdBy, false);
+                task = new Task(id, title, project, creator);
+                task.setCreatedOn(createdOn);
+                task.setCreatedBy(creator);
+                task.setCompletedBy(getUserById(completedBy, false));
+                task.setEditedBy(getUserById(editedBy, false));
+                task.setCompletedOn(completedOn);
+                task.setEditedOn(editedOn);
+                task.setProject(project);
+                if(completedOn != null)
+                    task.setDone(true);
+                if(parentTaskID != 0){
+                    for(Task parentTask : tasks)
+                        if(parentTask.getId() == parentTaskID)
+                            parentTask.addTask(task);
+
+                    task.setSubtask(false);
+                }
+                System.out.println(task);
+                tasks.add(task);
+            }
+            rs.close();
+            ps.close();
+            disconnectDB();
+
+            return tasks;
+        }
+//        if(project != null)
+//            return project.getTasks();
         throw new ObjectDoesNotExist("Project with ID: [" + projectId + "] does not exist.");
     }
 
